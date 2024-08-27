@@ -4,9 +4,4 @@ pandas
 scikit-learn
 streamlit
 spacy
-from scikit-learn.preprocessing import LabelEncoder
-from scikit-learn.metrics import classification_report
-from scikit-learn.model_selection import train_test_split
-from scikit-learn.pipeline import Pipeline
-from scikit-learn.naive_bayes import MultinomialNB
-from scikit-learn.feature_extraction.text import TfidfVectorizer
+
