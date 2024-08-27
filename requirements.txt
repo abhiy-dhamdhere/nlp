@@ -1,10 +1,12 @@
 streamlit>=1.26.0
-import numpy as np
-import pandas as pd 
-import spacy
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.feature_extraction.text import TfidfVectorizer
+numpy
+pandas
+scikit-learn
+streamlit
+spacy
+from scikit-learn.preprocessing import LabelEncoder
+from scikit-learn.metrics import classification_report
+from scikit-learn.model_selection import train_test_split
+from scikit-learn.pipeline import Pipeline
+from scikit-learn.naive_bayes import MultinomialNB
+from scikit-learn.feature_extraction.text import TfidfVectorizer
