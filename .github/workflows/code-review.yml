@@ -1,0 +1,112 @@
+name: Azure OpenAI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Get changed files
+        id: changed-files
+        run: |
+          echo "files=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai requests
+
+      - name: Review Code
+        env:
+          AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FILES: ${{ steps.changed-files.outputs.files }}
+        run: |
+          cat > review.py << 'EOL'
+          import os
+          import openai
+          import requests
+          from pathlib import Path
+
+          def get_file_content(file_path):
+              try:
+                  return Path(file_path).read_text()
+              except:
+                  return ""
+
+          def post_review(review):
+              url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{os.environ['PR_NUMBER']}/reviews"
+              headers = {
+                  "Accept": "application/vnd.github.v3+json",
+                  "Authorization": f"token {os.environ['GITHUB_TOKEN']}"
+              }
+              data = {
+                  "body": review,
+                  "event": "COMMENT"
+              }
+              requests.post(url, headers=headers, json=data)
+
+          client = openai.AzureOpenAI(
+              api_key=os.environ["AZURE_OPENAI_KEY"],
+              api_version="2024-06-01",
+              azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"]
+          )
+
+          changed_files = os.environ["FILES"].split()
+
+          for file_path in changed_files:
+              if not file_path.endswith(('.py', '.js', '.java', '.cpp', '.ts')):
+                  continue
+                  
+              content = get_file_content(file_path)
+              if not content:
+                  continue
+
+              prompt = f"""Review this code for:
+              1. Potential bugs
+              2. Security issues
+              3. Performance improvements
+              4. Best practices
+              5. Code style
+
+              File: {file_path}
+
+              Code:
+              ```
+              {content}
+              ```
+
+              Provide specific, actionable feedback."""
+
+              response = client.chat.completions.create(
+                  model="gpt4o",
+                  messages=[
+                      {"role": "system", "content": "You are a senior software engineer performing code review."},
+                      {"role": "user", "content": prompt}
+                  ],
+                  temperature=0,
+                  max_tokens=1000
+              )
+
+              review = f"## Code Review for {file_path}\n\n{response.choices[0].message.content}"
+              post_review(review)
+          EOL
+
+          python review.py
